@@ -48,7 +48,7 @@ export default function Home() {
   async function createActivity() {
     if (!activityName.trim()) return setNotice({ kind: "error", text: "請輸入活動名稱。" });
     setBusy(true); setNotice(null);
-    const { data, error } = await supabase.rpc("gift_create_activity", { p_activity_name: activityName.trim() });
+    const { data, error } = await supabase.rpc("gift_create_activity", { p_name: activityName.trim() });
     if (error) {
       setNotice({ kind: "error", text: `建立活動失敗：${error.message}` });
     } else {
