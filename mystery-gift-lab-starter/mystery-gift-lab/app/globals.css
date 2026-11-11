@@ -27,3 +27,48 @@ button.ghost{background:transparent;color:#967da0;box-shadow:none}
 footer{text-align:center;margin:28px auto 0;color:#b39eb5;font-size:12px}
 .sparkle{position:absolute;color:#e8a3c2;font-size:42px;opacity:.65}.s1{top:100px;left:8%}.s2{top:260px;right:9%;color:#b9a5e9}
 @media(max-width:520px){.page{padding-top:35px}.panel{padding:23px;border-radius:22px}}
+
+/* Host dashboard */
+.mainPanel{max-width:560px}
+.dashboard{position:relative;z-index:1;max-width:1120px;margin:54px auto 0}
+.dashboardHeading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.dashboardHeading h2{font-size:28px;margin:10px 0 4px;font-weight:900}
+.dashboardHeading p{margin:0;color:#927f97;font-size:14px}
+.countPill,.statusTag{display:inline-flex;align-items:center;padding:6px 11px;border-radius:99px;background:#fff0f5;color:#b46c8a;font-size:12px;font-weight:700;white-space:nowrap}
+.activityLayout{display:grid;grid-template-columns:minmax(250px, .78fr) minmax(0,1.7fr);gap:18px;align-items:start}
+.activityList,.managementPanel{background:#ffffffd9;border:1px solid #fff;border-radius:22px;padding:18px;box-shadow:0 12px 35px #876b8c14;min-width:0}
+.activityList{display:grid;gap:10px}
+.activityCard{display:block;text-align:left;margin:0;padding:15px;border:1.5px solid #f0e5f0;background:#fff;border-radius:15px;box-shadow:none;color:var(--ink);font-weight:400}
+.activityCard.active{border-color:#d5b9ed;background:#fcf8ff}
+.activityCardTop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.activityCardTop strong{font-size:14px}
+.activityCode,.activityMeta{display:block;color:#9b899e;font-size:12px;margin-top:8px}
+.statusTag{background:#eaf8f0;color:#4d956f}
+.statusTag:not(.open){background:#f1edf7;color:#87739a}
+.managementTitle{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.smallLabel{font-size:10px;letter-spacing:1.4px;color:#b08cae;font-weight:900}
+.managementTitle h3{font-size:20px;margin:5px 0 0;overflow-wrap:anywhere}
+.statGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0 24px}
+.statBox{padding:14px;border-radius:15px;background:linear-gradient(120deg,#fff1f5,#f5f0ff);display:flex;flex-direction:column;gap:3px}
+.statBox strong{font-size:25px;color:#a078b5}.statBox span{font-size:12px;color:#907d98}
+.subheading{font-weight:900;font-size:15px;margin:16px 0 10px}
+.subheading span{font-size:11px;color:#a18fa5;font-weight:400;margin-left:6px}
+.addQuestion{display:flex;gap:8px}
+.addQuestion input{min-width:0}
+.addQuestion button,.rowActions button{width:auto;white-space:nowrap;margin:0;padding:10px 14px;border-radius:11px;font-size:12px}
+.questionList,.participantList{display:grid;gap:7px;margin-top:12px}
+.questionRow,.participantRow{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid #f0e8f1;border-radius:12px;background:#fff;min-width:0}
+.questionNo,.participantIndex{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:9px;background:#f5effa;color:#987bb0;font-size:12px;font-weight:900}
+.questionText{flex:1;font-size:13px;min-width:0;overflow-wrap:anywhere}
+.rowActions{display:flex;gap:5px;flex-shrink:0}
+.rowActions .miniGhost{background:#f2eff8;color:#88769d;box-shadow:none}
+.rowActions .miniDelete{background:#fff0f1;color:#b66e78;box-shadow:none}
+.editQuestion{flex:1;min-width:0;display:grid;gap:7px}
+.editQuestion input{padding:9px 10px;font-size:13px}
+.participantHeading{margin-top:26px}
+.participantRow strong{font-size:13px;flex:1}
+.participantDate{font-size:11px;color:#a997aa}
+.emptyState,.emptyInline{padding:22px 14px;text-align:center;color:#a18fa5;font-size:13px;line-height:1.7}
+.emptyInline{padding:14px}
+@media(max-width:760px){.activityLayout{grid-template-columns:1fr}.dashboardHeading{align-items:flex-start;flex-direction:column}.dashboard{margin-top:38px}}
+@media(max-width:480px){.questionRow{flex-wrap:wrap}.questionText{flex-basis:calc(100% - 45px)}.rowActions{margin-left:36px}.addQuestion{flex-direction:column}.addQuestion button{width:100%}.subheading span{display:block;margin:4px 0 0}}
