@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -40,6 +40,20 @@ export default function Home() {
     setBusy(false);
   }
 
+  async function sendPasswordReset() {
+    if (!email.trim()) {
+      setNotice({ kind: "error", text: "請先輸入註冊時使用的 Email。" });
+      return;
+    }
+    setBusy(true); setNotice(null);
+    const redirectTo = window.location.origin + "/reset-password";
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    setNotice(error
+      ? { kind: "error", text: "寄送重設密碼信失敗：" + error.message }
+      : { kind: "ok", text: "如果這個 Email 已註冊，系統會寄出重設密碼信。請從正式網站的信件連結設定新密碼，並留意信件有效期限。" });
+    setBusy(false);
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setNotice({ kind: "ok", text: "已登出。" });
@@ -50,9 +64,9 @@ export default function Home() {
     setBusy(true); setNotice(null);
     const { data, error } = await supabase.rpc("gift_create_activity", { p_name: activityName.trim() });
     if (error) {
-      setNotice({ kind: "error", text: `建立活動失敗：${error.message}` });
+      setNotice({ kind: "error", text: "建立活動失敗：" + error.message });
     } else {
-      setNotice({ kind: "ok", text: `建立活動成功！資料庫回傳：${JSON.stringify(data)}。請先保留活動代碼；下一階段會加入完整活動管理畫面。` });
+      setNotice({ kind: "ok", text: "建立活動成功！資料庫回傳：" + JSON.stringify(data) + "。請先保留活動代碼；下一階段會加入完整活動管理畫面。" });
     }
     setBusy(false);
   }
@@ -67,9 +81,9 @@ export default function Home() {
       p_display_name: displayName.trim()
     });
     if (error) {
-      setNotice({ kind: "error", text: `加入活動失敗：${error.message}` });
+      setNotice({ kind: "error", text: "加入活動失敗：" + error.message });
     } else {
-      setNotice({ kind: "ok", text: `加入活動成功！資料庫回傳：${JSON.stringify(data)}。下一階段會接上問卷及禮物填寫頁面。` });
+      setNotice({ kind: "ok", text: "加入活動成功！資料庫回傳：" + JSON.stringify(data) + "。下一階段會接上問卷及禮物填寫頁面。" });
     }
     setBusy(false);
   }
@@ -111,9 +125,10 @@ export default function Home() {
             <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="至少 6 碼" />
             <button disabled={busy} onClick={signIn}>登入</button>
             <button className="secondary" disabled={busy} onClick={signUp}>建立新帳號</button>
+            <button className="ghost" disabled={busy} onClick={sendPasswordReset}>忘記密碼？寄送重設密碼信</button>
           </>
         )}
-        {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
+        {notice && <div className={"notice " + notice.kind}>{notice.text}</div>}
       </section>
       <footer>Made with 🎁, ✨ and a little mystery.</footer>
     </main>
