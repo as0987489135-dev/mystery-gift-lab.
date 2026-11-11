@@ -123,14 +123,22 @@ export default function Home() {
       return setNotice({ kind: "error", text: "請輸入活動代碼及參加者暱稱。" });
     }
     setBusy(true); setNotice(null);
-    const { error } = await supabase.rpc("gift_join_activity", {
+    const { data, error } = await supabase.rpc("gift_join_activity", {
       p_code: joinCode.trim(),
       p_display_name: displayName.trim()
     });
-    setNotice(error
-      ? { kind: "error", text: `加入活動失敗：${error.message}` }
-      : { kind: "ok", text: "加入活動成功！後續將接上問卷及禮物填寫頁面。" });
+    if (error) {
+      setNotice({ kind: "error", text: `加入活動失敗：${error.message}` });
+      setBusy(false);
+      return;
+    }
+    setNotice({ kind: "ok", text: "加入活動成功！正在前往參加者頁面…" });
     setBusy(false);
+    if (typeof data === "string") {
+      window.location.assign(`/participant?participantId=${encodeURIComponent(data)}`);
+    } else {
+      setNotice({ kind: "error", text: "已加入活動，但系統未取得參加者識別資料，請重新整理後再試。" });
+    }
   }
 
   async function addQuestion() {

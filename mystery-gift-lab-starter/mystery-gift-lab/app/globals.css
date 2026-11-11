@@ -72,3 +72,27 @@ footer{text-align:center;margin:28px auto 0;color:#b39eb5;font-size:12px}
 .emptyInline{padding:14px}
 @media(max-width:760px){.activityLayout{grid-template-columns:1fr}.dashboardHeading{align-items:flex-start;flex-direction:column}.dashboard{margin-top:38px}}
 @media(max-width:480px){.questionRow{flex-wrap:wrap}.questionText{flex-basis:calc(100% - 45px)}.rowActions{margin-left:36px}.addQuestion{flex-direction:column}.addQuestion button{width:100%}.subheading span{display:block;margin:4px 0 0}}
+
+
+/* Participant workspace */
+.participantPage{max-width:820px;margin:0 auto 22px}
+.participantTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.savedHint{font-size:12px;color:#4d956f;margin:10px 0 0}
+.rankingPanel{margin-top:22px}
+.rankingProgress{display:inline-block;margin:6px 0 14px;padding:7px 12px;border-radius:99px;background:#f5effa;color:#8c72a2;font-size:12px;font-weight:900}
+.rankingQuestion{padding:17px;margin:12px 0;border:1px solid #eee4f0;border-radius:16px;background:#fff}
+.rankingQuestionTitle{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;font-size:14px;line-height:1.6}
+.doneTag,.todoTag{flex-shrink:0;padding:5px 9px;border-radius:99px;font-size:11px;font-weight:900}
+.doneTag{background:#eaf8f0;color:#4d956f}
+.todoTag{background:#f5effa;color:#987bb0}
+.rankingPeople{display:grid;gap:7px}
+.rankingPerson{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid #f0e8f1;border-radius:11px;min-width:0}
+.rankingPerson strong{font-size:13px;flex:1;min-width:0;overflow-wrap:anywhere}
+.rankNumber{display:grid;place-items:center;flex:0 0 27px;width:27px;height:27px;border-radius:9px;background:#f5effa;color:#987bb0;font-weight:900;font-size:12px}
+.rankMove{display:flex;gap:5px}
+.rankMove button{width:auto;margin:0;padding:7px 10px;font-size:11px}
+.participantPage button{margin-top:12px}
+.rankingQuestion>button{width:100%}
+.participantFooter{max-width:820px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}
+.participantFooter a,.participantPage a{color:#9b75ad;font-weight:700;text-decoration:none}
+@media(max-width:560px){.participantTop,.rankingQuestionTitle{flex-direction:column}.rankingPerson{flex-wrap:wrap}.rankMove{margin-left:auto}.participantPage{padding:22px}.participantFooter{padding:0 8px}}
