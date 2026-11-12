@@ -42,6 +42,7 @@ export default function HostPage() {
   const [editingText, setEditingText] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadActivities = useCallback(async (userId: string) => {
@@ -134,7 +135,7 @@ export default function HostPage() {
   }, [loadActivities]);
 
   async function addQuestion() {
-    if (!selectedActivity) return;
+    if (!selectedActivity || selectedActivity.status !== "open") return;
     const text = newQuestion.trim();
     if (!text) {
       setNotice({ kind: "error", text: "請先輸入題目內容。" });
@@ -159,6 +160,7 @@ export default function HostPage() {
   }
 
   async function saveQuestion(questionId: string) {
+    if (!selectedActivity || selectedActivity.status !== "open") return;
     const text = editingText.trim();
     if (!text) {
       setNotice({ kind: "error", text: "題目內容不能空白。" });
@@ -181,7 +183,7 @@ export default function HostPage() {
   }
 
   async function deleteQuestion(question: Question) {
-    if (!selectedActivity) return;
+    if (!selectedActivity || selectedActivity.status !== "open") return;
     if (!window.confirm(`確定刪除「${question.question_text}」嗎？`)) return;
     setBusy(true);
     const { error } = await supabase
@@ -195,6 +197,46 @@ export default function HostPage() {
       await loadActivityDetails(selectedActivity);
     }
     setBusy(false);
+  }
+
+  const canFinalize = Boolean(
+    selectedActivity &&
+    selectedActivity.status === "open" &&
+    participants.length >= 2 &&
+    questions.length >= 1 &&
+    progress.length === participants.length &&
+    progress.every((person) =>
+      Number(person.answered_count) >= Number(person.question_count) &&
+      Number(person.question_count) === questions.length &&
+      person.has_wish
+    )
+  );
+
+  async function finalizeRankings() {
+    if (!selectedActivity || !canFinalize || finalizing) return;
+    const confirmed = window.confirm(
+      "確定要結算這場活動的問卷並鎖定嗎？\n\n結算後，參加者將無法再修改問卷或禮物願望，排名也會正式產生。此操作無法復原。"
+    );
+    if (!confirmed) return;
+
+    setFinalizing(true);
+    setNotice(null);
+    const { error } = await supabase.rpc("gift_finalize_rankings", {
+      p_activity_id: selectedActivity.id
+    });
+
+    if (error) {
+      setNotice({ kind: "error", text: "結算失敗：" + error.message });
+    } else {
+      const lockedActivity = { ...selectedActivity, status: "locked" };
+      setSelectedActivity(lockedActivity);
+      setActivities((previous) =>
+        previous.map((item) => item.id === lockedActivity.id ? lockedActivity : item)
+      );
+      setNotice({ kind: "ok", text: "問卷已成功結算，活動已鎖定！所有排名已由系統計算完成。" });
+      await loadActivityDetails(lockedActivity);
+    }
+    setFinalizing(false);
   }
 
   if (loading) return <main className="page"><section className="panel">正在載入主辦人管理頁面…</section></main>;
@@ -274,7 +316,7 @@ export default function HostPage() {
                   placeholder="輸入新的問卷題目"
                   maxLength={120}
                 />
-                <button disabled={busy} onClick={addQuestion}>＋ 新增題目</button>
+                <button disabled={busy || selectedActivity.status !== "open"} onClick={addQuestion}>＋ 新增題目</button>
               </div>
 
               <div className="hostQuestionList">
@@ -283,9 +325,9 @@ export default function HostPage() {
                     <span className="hostQuestionNo">{question.question_no}</span>
                     {editingId === question.id ? (
                       <div className="hostEditArea">
-                        <input value={editingText} onChange={(e) => setEditingText(e.target.value)} maxLength={120} />
+                        <input disabled={selectedActivity.status !== "open"} value={editingText} onChange={(e) => setEditingText(e.target.value)} maxLength={120} />
                         <div className="hostActions">
-                          <button disabled={busy} onClick={() => saveQuestion(question.id)}>儲存</button>
+                          <button disabled={busy || selectedActivity.status !== "open"} onClick={() => saveQuestion(question.id)}>儲存</button>
                           <button className="ghost" disabled={busy} onClick={() => setEditingId(null)}>取消</button>
                         </div>
                       </div>
@@ -293,8 +335,8 @@ export default function HostPage() {
                       <>
                         <span className="hostQuestionText">{question.question_text}</span>
                         <div className="hostActions">
-                          <button className="hostSmallButton secondary" disabled={busy} onClick={() => { setEditingId(question.id); setEditingText(question.question_text); }}>修改</button>
-                          <button className="hostSmallButton danger" disabled={busy} onClick={() => deleteQuestion(question)}>刪除</button>
+                          <button className="hostSmallButton secondary" disabled={busy || selectedActivity.status !== "open"} onClick={() => { setEditingId(question.id); setEditingText(question.question_text); }}>修改</button>
+                          <button className="hostSmallButton danger" disabled={busy || selectedActivity.status !== "open"} onClick={() => deleteQuestion(question)}>刪除</button>
                         </div>
                       </>
                     )}
@@ -324,6 +366,34 @@ export default function HostPage() {
                   })}
                 </div>
               )}
+
+              <section className="hostFinalizePanel">
+                <div className="hostSectionHeading">🔐 問卷結算與活動鎖定</div>
+                {selectedActivity.status === "open" ? (
+                  <>
+                    <p className="muted">
+                      所有參加者都完成全部問卷並填寫禮物願望後，主辦人才能進行結算。結算後會計算每題排名並鎖定活動。
+                    </p>
+                    <div className={canFinalize ? "hostFinalizeStatus ready" : "hostFinalizeStatus pending"}>
+                      {canFinalize
+                        ? "🎉 全員資料已完成，可以進行結算！"
+                        : "尚未符合結算條件，請確認上方每位參加者的問卷及禮物願望進度。"}
+                    </div>
+                    <button
+                      type="button"
+                      className="hostFinalizeButton"
+                      disabled={!canFinalize || finalizing || busy}
+                      onClick={finalizeRankings}
+                    >
+                      {finalizing ? "正在結算…" : "🔒 確認結算並鎖定活動"}
+                    </button>
+                  </>
+                ) : (
+                  <div className="hostFinalizeStatus ready">
+                    🔒 這場活動已完成結算並鎖定，問卷及禮物願望不能再修改。
+                  </div>
+                )}
+              </section>
 
               <div className="hostSectionHeading">👥 參加者</div>
               {participants.length === 0 ? (
