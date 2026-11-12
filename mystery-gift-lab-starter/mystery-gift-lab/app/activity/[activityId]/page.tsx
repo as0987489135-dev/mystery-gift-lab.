@@ -295,7 +295,7 @@ export default function ParticipantActivityPage() {
                           return (
                             <div className="surveyRankingRow" key={personId}>
                               <span className="surveyRankNumber">{index + 1}</span>
-                              <span className="surveyPersonName">{person.display_name}{person.id === self.id ? "（我）" : ""}</span>
+                              <span className="surveyPersonName">{person.display_name}{person.id === self?.id ? "（我）" : ""}</span>
                               <div className="surveyMoveButtons">
                                 <button type="button" className="hostSmallButton" aria-label="上移" disabled={activity.status !== "open" || index === 0} onClick={() => movePerson(question.id, index, -1)}>↑</button>
                                 <button type="button" className="hostSmallButton" aria-label="下移" disabled={activity.status !== "open" || index === orderedIds.length - 1} onClick={() => movePerson(question.id, index, 1)}>↓</button>
