@@ -43,6 +43,8 @@ export default function HostPage() {
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [drawCompleted, setDrawCompleted] = useState(false);
+  const [drawing, setDrawing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadActivities = useCallback(async (userId: string) => {
@@ -64,7 +66,8 @@ export default function HostPage() {
     setSelectedActivity(activity);
     setNotice(null);
     setProgress([]);
-    const [questionResult, participantResult, progressResult] = await Promise.all([
+    setDrawCompleted(false);
+    const [questionResult, participantResult, progressResult, drawStatusResult] = await Promise.all([
       supabase
         .from("gift_questions")
         .select("id, activity_id, question_no, question_text")
@@ -74,7 +77,8 @@ export default function HostPage() {
         .from("gift_participants")
         .select("*")
         .eq("activity_id", activity.id),
-      supabase.rpc("gift_get_completion_progress", { p_activity_id: activity.id })
+      supabase.rpc("gift_get_completion_progress", { p_activity_id: activity.id }),
+      supabase.rpc("gift_get_draw_status", { p_activity_id: activity.id })
     ]);
 
     if (questionResult.error) {
@@ -95,6 +99,13 @@ export default function HostPage() {
       setNotice({ kind: "error", text: "讀取完成進度失敗：" + progressResult.error.message + "。請先在 Supabase 建立進度查詢函式。" });
     } else {
       setProgress((progressResult.data || []) as Progress[]);
+    }
+
+    if (drawStatusResult.error) {
+      setDrawCompleted(false);
+      setNotice({ kind: "error", text: "讀取抽籤狀態失敗：" + drawStatusResult.error.message });
+    } else {
+      setDrawCompleted(drawStatusResult.data === true);
     }
   }, []);
 
@@ -237,6 +248,28 @@ export default function HostPage() {
       await loadActivityDetails(lockedActivity);
     }
     setFinalizing(false);
+  }
+
+  async function drawAssignments() {
+    if (!selectedActivity || selectedActivity.status !== "locked" || drawCompleted || drawing) return;
+    const confirmed = window.confirm(
+      "確定要開始抽籤嗎？\\n\\n系統會隨機安排每位參加者送禮的對象，每人送出一份並收到一份，不會抽到自己。每場活動只能抽籤一次，完成後無法重抽。"
+    );
+    if (!confirmed) return;
+
+    setDrawing(true);
+    setNotice(null);
+    const { data, error } = await supabase.rpc("gift_draw_assignments", {
+      p_activity_id: selectedActivity.id
+    });
+
+    if (error || data !== true) {
+      setNotice({ kind: "error", text: "抽籤失敗：" + (error?.message || "系統未回傳成功結果，請確認抽籤狀態。") });
+    } else {
+      setDrawCompleted(true);
+      setNotice({ kind: "ok", text: "🎉 抽籤完成！每位參加者都已分配到一位送禮對象。" });
+    }
+    setDrawing(false);
   }
 
   if (loading) return <main className="page"><section className="panel">正在載入主辦人管理頁面…</section></main>;
@@ -392,6 +425,33 @@ export default function HostPage() {
                   <div className="hostFinalizeStatus ready">
                     🔒 這場活動已完成結算並鎖定，問卷及禮物願望不能再修改。
                   </div>
+                )}
+              </section>
+
+              <section className="hostFinalizePanel">
+                <div className="hostSectionHeading">🎲 神秘抽籤</div>
+                {selectedActivity.status !== "locked" ? (
+                  <div className="hostFinalizeStatus pending">
+                    請先完成問卷結算並鎖定活動，才能開始抽籤。
+                  </div>
+                ) : drawCompleted ? (
+                  <div className="hostFinalizeStatus ready">
+                    🎉 這場活動已完成抽籤！每位參加者都已取得自己的送禮對象，不能重新抽籤。
+                  </div>
+                ) : (
+                  <>
+                    <p className="muted">
+                      系統會隨機安排送禮對象，確保每人送出一份、收到一份，而且不會抽到自己。抽籤只能執行一次。
+                    </p>
+                    <button
+                      type="button"
+                      className="hostFinalizeButton"
+                      disabled={drawing || finalizing || busy}
+                      onClick={drawAssignments}
+                    >
+                      {drawing ? "正在抽籤…" : "🎲 開始抽籤"}
+                    </button>
+                  </>
                 )}
               </section>
 
