@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
 type Notice = { kind: "ok" | "error"; text: string } | null;
 
 export default function Home() {
+  const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -103,7 +105,20 @@ export default function Home() {
     if (error) {
       setNotice({ kind: "error", text: "加入活動失敗：" + error.message });
     } else {
-      setNotice({ kind: "ok", text: "加入活動成功！資料庫回傳：" + JSON.stringify(data) + "。下一階段會接上問卷及禮物填寫頁面。" });
+      const { data: participant, error: participantError } = await supabase
+        .from("gift_participants")
+        .select("activity_id")
+        .eq("id", data)
+        .maybeSingle();
+
+      if (participantError || !participant?.activity_id) {
+        setNotice({
+          kind: "error",
+          text: "已成功加入活動，但讀取活動頁面資料失敗：" + (participantError?.message || "找不到參加紀錄")
+        });
+      } else {
+        router.push("/activity/" + participant.activity_id);
+      }
     }
     setBusy(false);
   }
