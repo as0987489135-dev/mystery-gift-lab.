@@ -101,6 +101,37 @@ export default function Home() {
     setBusy(false);
   }
 
+  async function sendMagicLink() {
+    if (!email.trim()) {
+      setNotice({ kind: "error", text: "請先輸入 Email。" });
+      return;
+    }
+    setBusy(true); setNotice(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin + "/host", shouldCreateUser: false }
+    });
+    setNotice(error
+      ? { kind: "error", text: "寄送免密碼登入信失敗：" + error.message }
+      : { kind: "ok", text: "登入連結已寄出！請開啟最新一封信件，並只點擊一次連結。" });
+    setBusy(false);
+  }
+
+  async function sendPasswordReset() {
+    if (!email.trim()) {
+      setNotice({ kind: "error", text: "請先輸入註冊時使用的 Email。" });
+      return;
+    }
+    setBusy(true); setNotice(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin + "/reset-password"
+    });
+    setNotice(error
+      ? { kind: "error", text: "寄送重設密碼信失敗：" + error.message }
+      : { kind: "ok", text: "如果這個 Email 已註冊，系統會寄出重設密碼信。請留意信件有效期限。" });
+    setBusy(false);
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setNotice({ kind: "ok", text: "已登出。" });
@@ -135,7 +166,16 @@ export default function Home() {
     setNotice({ kind: "ok", text: "加入活動成功！正在前往參加者頁面…" });
     setBusy(false);
     if (typeof data === "string") {
-      window.location.assign(`/participant?participantId=${encodeURIComponent(data)}`);
+      const { data: participant, error: participantError } = await supabase
+        .from("gift_participants")
+        .select("activity_id")
+        .eq("id", data)
+        .maybeSingle();
+      if (participantError || !participant?.activity_id) {
+        setNotice({ kind: "error", text: "已加入活動，但讀取活動頁面資料失敗：" + (participantError?.message || "找不到參加紀錄") });
+      } else {
+        window.location.assign(`/activity/${encodeURIComponent(participant.activity_id)}`);
+      }
     } else {
       setNotice({ kind: "error", text: "已加入活動，但系統未取得參加者識別資料，請重新整理後再試。" });
     }
@@ -223,7 +263,9 @@ export default function Home() {
             <label>密碼</label>
             <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="至少 6 碼" />
             <button disabled={busy} onClick={signIn}>登入</button>
+            <button className="secondary" disabled={busy} onClick={sendMagicLink}>寄送免密碼登入連結</button>
             <button className="secondary" disabled={busy} onClick={signUp}>建立新帳號</button>
+            <button className="ghost" disabled={busy} onClick={sendPasswordReset}>忘記密碼？寄送重設密碼信</button>
           </>
         )}
         {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
