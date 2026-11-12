@@ -25,6 +25,7 @@ type Question = {
 };
 
 type Notice = { kind: "ok" | "error"; text: string } | null;
+type Answer = { question_id: string; ordered_participant_ids: string[] };
 
 export default function ParticipantActivityPage() {
   const params = useParams<{ activityId: string }>();
@@ -36,6 +37,9 @@ export default function ParticipantActivityPage() {
   const [self, setSelf] = useState<Participant | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [rankings, setRankings] = useState<Record<string, string[]>>({});
+  const [savedQuestions, setSavedQuestions] = useState<string[]>([]);
+  const [savingQuestion, setSavingQuestion] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState(true);
 
@@ -95,8 +99,47 @@ export default function ParticipantActivityPage() {
       setQuestions((questionResult.data || []) as Question[]);
     }
 
+    const loadedParticipants = (participantResult.data || []) as Participant[];
+    const loadedQuestions = (questionResult.data || []) as Question[];
+    const currentParticipant = selfResult.data as Participant;
+
+    setParticipants(loadedParticipants);
+    setQuestions(loadedQuestions);
+
+    const { data: answerRows, error: answerError } = await supabase
+      .from("gift_answers")
+      .select("question_id, ordered_participant_ids")
+      .eq("activity_id", activityId)
+      .eq("participant_id", currentParticipant.id);
+
+    if (answerError) {
+      setNotice({ kind: "error", text: "讀取你先前的作答紀錄失敗：" + answerError.message });
+    } else {
+      const answerMap: Record<string, string[]> = {};
+      const savedIds: string[] = [];
+      ((answerRows || []) as Answer[]).forEach((answer) => {
+        const validIds = answer.ordered_participant_ids.filter((id) =>
+          loadedParticipants.some((person) => person.id === id)
+        );
+        const missingIds = loadedParticipants
+          .map((person) => person.id)
+          .filter((id) => !validIds.includes(id));
+        answerMap[answer.question_id] = [...validIds, ...missingIds];
+        if (missingIds.length === 0 && validIds.length === loadedParticipants.length) {
+          savedIds.push(answer.question_id);
+        }
+      });
+      loadedQuestions.forEach((question) => {
+        if (!answerMap[question.id]) {
+          answerMap[question.id] = loadedParticipants.map((person) => person.id);
+        }
+      });
+      setRankings(answerMap);
+      setSavedQuestions(savedIds);
+    }
+
     setActivity(activityResult.data as Activity);
-    setSelf(selfResult.data as Participant);
+    setSelf(currentParticipant);
     setLoading(false);
   }, [activityId]);
 
@@ -133,6 +176,38 @@ export default function ParticipantActivityPage() {
       listener.subscription.unsubscribe();
     };
   }, [loadActivity, router]);
+
+  function movePerson(questionId: string, index: number, direction: -1 | 1) {
+    const current = rankings[questionId] || participants.map((person) => person.id);
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= current.length) return;
+    const next = [...current];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    setRankings((previous) => ({ ...previous, [questionId]: next }));
+    setSavedQuestions((previous) => previous.filter((id) => id !== questionId));
+  }
+
+  async function saveRanking(questionId: string) {
+    if (!self || !activity || activity.status !== "open") return;
+    const orderedIds = rankings[questionId] || [];
+    if (orderedIds.length !== participants.length || new Set(orderedIds).size !== participants.length) {
+      setNotice({ kind: "error", text: "排序資料不完整，請重新確認這一題。" });
+      return;
+    }
+    setSavingQuestion(questionId);
+    setNotice(null);
+    const { error } = await supabase.rpc("gift_submit_ranking", {
+      p_question_id: questionId,
+      p_ordered_participant_ids: orderedIds
+    });
+    if (error) {
+      setNotice({ kind: "error", text: "儲存排序失敗：" + error.message });
+    } else {
+      setSavedQuestions((previous) => previous.includes(questionId) ? previous : [...previous, questionId]);
+      setNotice({ kind: "ok", text: "這一題的排序已安全儲存，只有你本人可以查看自己的作答。" });
+    }
+    setSavingQuestion(null);
+  }
 
   if (loading) {
     return <main className="page"><section className="panel">正在載入活動資料…</section></main>;
@@ -190,18 +265,61 @@ export default function ParticipantActivityPage() {
               </div>
             )}
 
-            <div className="hostSectionHeading">📝 本場活動問卷題目</div>
-            <p className="muted">請先看看主辦人為這場活動準備了哪些題目。下一階段會接上逐題排序及送出答案功能。</p>
+            <div className="hostSectionHeading">📝 本場活動排名問卷</div>
+            <p className="muted">請依照每一題的描述，將所有參加者由最符合排到最不符合。使用上移、下移調整順序，再逐題儲存。你的答案不會公開給其他參加者。</p>
+            {activity.status !== "open" && (
+              <div className="notice error">活動已鎖定，目前不能再修改或提交問卷。</div>
+            )}
             {questions.length === 0 ? (
               <p className="muted">主辦人尚未設定題目，請稍後再回來查看。</p>
+            ) : participants.length < 2 ? (
+              <p className="muted">至少需要 2 位參加者，才能開始排名問卷。</p>
             ) : (
-              <div className="hostQuestionList">
-                {questions.map((question) => (
-                  <div className="hostQuestion" key={question.id}>
-                    <span className="hostQuestionNo">{question.question_no}</span>
-                    <span className="hostQuestionText">{question.question_text}</span>
-                  </div>
-                ))}
+              <div className="participantSurvey">
+                <div className="surveyProgress">已完成 {savedQuestions.filter((id) => questions.some((question) => question.id === id)).length} / {questions.length} 題</div>
+                {questions.map((question) => {
+                  const orderedIds = rankings[question.id] || participants.map((person) => person.id);
+                  const isSaved = savedQuestions.includes(question.id);
+                  return (
+                    <section className="surveyQuestion" key={question.id}>
+                      <div className="surveyQuestionTitle">
+                        <span className="hostQuestionNo">{question.question_no}</span>
+                        <strong>{question.question_text}</strong>
+                        <span className={isSaved ? "surveySaved" : "surveyPending"}>{isSaved ? "已儲存" : "未儲存"}</span>
+                      </div>
+                      <p className="surveyHint">第 1 名最符合，最後一名最不符合</p>
+                      <div className="surveyRankingList">
+                        {orderedIds.map((personId, index) => {
+                          const person = participants.find((item) => item.id === personId);
+                          if (!person) return null;
+                          return (
+                            <div className="surveyRankingRow" key={personId}>
+                              <span className="surveyRankNumber">{index + 1}</span>
+                              <span className="surveyPersonName">{person.display_name}{person.id === self.id ? "（我）" : ""}</span>
+                              <div className="surveyMoveButtons">
+                                <button type="button" className="hostSmallButton" aria-label="上移" disabled={activity.status !== "open" || index === 0} onClick={() => movePerson(question.id, index, -1)}>↑</button>
+                                <button type="button" className="hostSmallButton" aria-label="下移" disabled={activity.status !== "open" || index === orderedIds.length - 1} onClick={() => movePerson(question.id, index, 1)}>↓</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        className="secondary surveySaveButton"
+                        disabled={activity.status !== "open" || savingQuestion === question.id}
+                        onClick={() => saveRanking(question.id)}
+                      >
+                        {savingQuestion === question.id ? "儲存中…" : isSaved ? "重新儲存這題" : "儲存這題排序"}
+                      </button>
+                    </section>
+                  );
+                })}
+                <div className="surveyCompletion">
+                  {savedQuestions.filter((id) => questions.some((question) => question.id === id)).length === questions.length
+                    ? "🎉 太好了！所有題目的排序都已完成並儲存。"
+                    : "完成所有題目並逐題儲存後，就完成排名問卷囉！"}
+                </div>
               </div>
             )}
           </>
