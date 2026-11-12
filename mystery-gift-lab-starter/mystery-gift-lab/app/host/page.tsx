@@ -221,12 +221,12 @@ export default function HostPage() {
 
     setFinalizing(true);
     setNotice(null);
-    const { error } = await supabase.rpc("gift_finalize_rankings", {
+    const { data, error } = await supabase.rpc("gift_finalize_rankings", {
       p_activity_id: selectedActivity.id
     });
 
-    if (error) {
-      setNotice({ kind: "error", text: "結算失敗：" + error.message });
+    if (error || data !== true) {
+      setNotice({ kind: "error", text: "結算失敗：" + (error?.message || "系統未回傳成功結果，活動尚未確認鎖定。") });
     } else {
       const lockedActivity = { ...selectedActivity, status: "locked" };
       setSelectedActivity(lockedActivity);
