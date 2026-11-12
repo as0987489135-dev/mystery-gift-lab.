@@ -27,6 +27,7 @@ type Participant = {
   [key: string]: unknown;
 };
 
+type Progress = { participant_id: string; display_name: string; answered_count: number; question_count: number; has_wish: boolean };
 type Notice = { kind: "ok" | "error"; text: string } | null;
 
 export default function HostPage() {
@@ -35,6 +36,7 @@ export default function HostPage() {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [progress, setProgress] = useState<Progress[]>([]);
   const [newQuestion, setNewQuestion] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -60,7 +62,8 @@ export default function HostPage() {
   const loadActivityDetails = useCallback(async (activity: Activity) => {
     setSelectedActivity(activity);
     setNotice(null);
-    const [questionResult, participantResult] = await Promise.all([
+    setProgress([]);
+    const [questionResult, participantResult, progressResult] = await Promise.all([
       supabase
         .from("gift_questions")
         .select("id, activity_id, question_no, question_text")
@@ -69,7 +72,8 @@ export default function HostPage() {
       supabase
         .from("gift_participants")
         .select("*")
-        .eq("activity_id", activity.id)
+        .eq("activity_id", activity.id),
+      supabase.rpc("gift_get_completion_progress", { p_activity_id: activity.id })
     ]);
 
     if (questionResult.error) {
@@ -83,6 +87,13 @@ export default function HostPage() {
       setNotice({ kind: "error", text: "讀取參加者失敗：" + participantResult.error.message });
     } else {
       setParticipants((participantResult.data || []) as Participant[]);
+    }
+
+    if (progressResult.error) {
+      setProgress([]);
+      setNotice({ kind: "error", text: "讀取完成進度失敗：" + progressResult.error.message + "。請先在 Supabase 建立進度查詢函式。" });
+    } else {
+      setProgress((progressResult.data || []) as Progress[]);
     }
   }, []);
 
@@ -291,6 +302,28 @@ export default function HostPage() {
                 ))}
                 {questions.length === 0 && <p className="muted">這場活動目前沒有題目，請新增第一道題目。</p>}
               </div>
+
+              <div className="hostSectionHeading">📊 參加者完成進度</div>
+              <p className="muted">只顯示完成數量及是否填寫禮物，不會顯示任何人的問卷答案或禮物內容。</p>
+              {progress.length === 0 ? (
+                <p className="muted">尚無完成進度資料，請確認資料庫進度查詢功能已設定。</p>
+              ) : (
+                <div className="hostProgressList">
+                  {progress.map((person) => {
+                    const answersDone = Number(person.answered_count) >= Number(person.question_count);
+                    const wishDone = person.has_wish;
+                    return (
+                      <div className="hostProgressCard" key={person.participant_id}>
+                        <strong>{person.display_name}</strong>
+                        <div className="hostProgressDetails">
+                          <span className={answersDone ? "surveySaved" : "surveyPending"}>問卷 {person.answered_count}/{person.question_count} 題</span>
+                          <span className={wishDone ? "surveySaved" : "surveyPending"}>禮物願望：{wishDone ? "已填寫" : "未填寫"}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="hostSectionHeading">👥 參加者</div>
               {participants.length === 0 ? (
