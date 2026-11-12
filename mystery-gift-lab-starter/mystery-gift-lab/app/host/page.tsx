@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
@@ -87,10 +87,10 @@ export default function HostPage() {
   }, []);
 
   useEffect(() => {
-    // Use Supabase's INITIAL_SESSION event as the single source of truth.
-    // Avoid racing getSession() against onAuthStateChange(), which could
-    // overwrite a valid session with a stale null result during page load.
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    // Subscribe first, then use getSession as a fallback for the initial load.
+    // The ref prevents a slower getSession result from overwriting a newer auth event.
+    const authEventReceived = { current: false };
+    const applySession = (nextSession: Session | null) => {
       setSession(nextSession);
       if (nextSession?.user) {
         void loadActivities(nextSession.user.id);
@@ -101,6 +101,20 @@ export default function HostPage() {
         setParticipants([]);
       }
       setLoading(false);
+    };
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      authEventReceived.current = true;
+      applySession(nextSession);
+    });
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!authEventReceived.current) {
+        if (error) {
+          setNotice({ kind: "error", text: "讀取登入狀態失敗：" + error.message });
+        }
+        applySession(data.session);
+      }
     });
 
     return () => {
