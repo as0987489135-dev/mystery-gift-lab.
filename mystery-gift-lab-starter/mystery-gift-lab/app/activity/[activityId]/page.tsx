@@ -26,6 +26,7 @@ type Question = {
 
 type Notice = { kind: "ok" | "error"; text: string } | null;
 type Answer = { question_id: string; ordered_participant_ids: string[] };
+type Wish = { id: string; gift_name: string; gift_url: string };
 
 export default function ParticipantActivityPage() {
   const params = useParams<{ activityId: string }>();
@@ -39,6 +40,11 @@ export default function ParticipantActivityPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [rankings, setRankings] = useState<Record<string, string[]>>({});
   const [savedQuestions, setSavedQuestions] = useState<string[]>([]);
+  const [wish, setWish] = useState<Wish | null>(null);
+  const [giftName, setGiftName] = useState("");
+  const [giftUrl, setGiftUrl] = useState("");
+  const [savingWish, setSavingWish] = useState(false);
+  const [wishSaved, setWishSaved] = useState(false);
   const [savingQuestion, setSavingQuestion] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState(true);
@@ -105,6 +111,28 @@ export default function ParticipantActivityPage() {
 
     setParticipants(loadedParticipants);
     setQuestions(loadedQuestions);
+
+    const { data: wishRow, error: wishError } = await supabase
+      .from("gift_wishes")
+      .select("id, gift_name, gift_url")
+      .eq("activity_id", activityId)
+      .eq("participant_id", currentParticipant.id)
+      .maybeSingle();
+
+    if (wishError) {
+      setNotice({ kind: "error", text: "讀取你的禮物願望失敗：" + wishError.message });
+    } else if (wishRow) {
+      const loadedWish = wishRow as Wish;
+      setWish(loadedWish);
+      setGiftName(loadedWish.gift_name || "");
+      setGiftUrl(loadedWish.gift_url || "");
+      setWishSaved(true);
+    } else {
+      setWish(null);
+      setGiftName("");
+      setGiftUrl("");
+      setWishSaved(false);
+    }
 
     const { data: answerRows, error: answerError } = await supabase
       .from("gift_answers")
@@ -207,6 +235,38 @@ export default function ParticipantActivityPage() {
       setNotice({ kind: "ok", text: "這一題的排序已安全儲存，只有你本人可以查看自己的作答。" });
     }
     setSavingQuestion(null);
+  }
+
+  async function saveWish() {
+    if (!self || !activity || activity.status !== "open") return;
+    const name = giftName.trim();
+    const url = giftUrl.trim();
+    if (!name) {
+      setNotice({ kind: "error", text: "請先填寫想收到的禮物名稱。" });
+      return;
+    }
+    if (url) {
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("invalid protocol");
+      } catch {
+        setNotice({ kind: "error", text: "請輸入有效的禮物網址，並以 https:// 或 http:// 開頭。" });
+        return;
+      }
+    }
+    setSavingWish(true);
+    setNotice(null);
+    const result = wish
+      ? await supabase.from("gift_wishes").update({ gift_name: name, gift_url: url }).eq("id", wish.id).select("id, gift_name, gift_url").single()
+      : await supabase.from("gift_wishes").insert({ activity_id: activityId, participant_id: self.id, gift_name: name, gift_url: url }).select("id, gift_name, gift_url").single();
+    if (result.error || !result.data) {
+      setNotice({ kind: "error", text: "儲存禮物願望失敗：" + (result.error?.message || "未取得儲存資料") });
+    } else {
+      setWish(result.data as Wish);
+      setWishSaved(true);
+      setNotice({ kind: "ok", text: "你的禮物願望已成功儲存！只有你本人及主辦人可以查看。" });
+    }
+    setSavingWish(false);
   }
 
   if (loading) {
@@ -322,6 +382,19 @@ export default function ParticipantActivityPage() {
                 </div>
               </div>
             )}
+
+            <div className="hostSectionHeading">🎁 我的禮物願望</div>
+            <p className="muted">請填寫你希望收到的禮物。這份資料不會公開給其他參加者，只有你本人及主辦人可以查看。</p>
+            <div className="giftWishForm">
+              <label htmlFor="giftName">禮物名稱</label>
+              <input id="giftName" type="text" maxLength={120} placeholder="例如：保溫杯、桌上型小風扇" value={giftName} disabled={activity.status !== "open"} onChange={(event) => { setGiftName(event.target.value); setWishSaved(false); }} />
+              <label htmlFor="giftUrl">禮物網址（選填）</label>
+              <input id="giftUrl" type="url" placeholder="https://..." value={giftUrl} disabled={activity.status !== "open"} onChange={(event) => { setGiftUrl(event.target.value); setWishSaved(false); }} />
+              <button type="button" className="secondary surveySaveButton" disabled={activity.status !== "open" || savingWish} onClick={saveWish}>
+                {savingWish ? "儲存中…" : wishSaved ? "重新儲存禮物願望" : "儲存我的禮物願望"}
+              </button>
+              {wishSaved && <span className="surveySaved"> 已儲存</span>}
+            </div>
           </>
         ) : (
           <div className="hostEmpty">
