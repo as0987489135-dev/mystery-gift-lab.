@@ -40,6 +40,26 @@ export default function Home() {
     setBusy(false);
   }
 
+  async function sendMagicLink() {
+    if (!email.trim()) {
+      setNotice({ kind: "error", text: "請先輸入 Email。" });
+      return;
+    }
+    setBusy(true);
+    setNotice(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: window.location.origin + "/host",
+        shouldCreateUser: false
+      }
+    });
+    setNotice(error
+      ? { kind: "error", text: "寄送免密碼登入信失敗：" + error.message }
+      : { kind: "ok", text: "登入連結已寄出！請開啟最新一封信件，並只點擊一次連結。" });
+    setBusy(false);
+  }
+
   async function sendPasswordReset() {
     if (!email.trim()) {
       setNotice({ kind: "error", text: "請先輸入註冊時使用的 Email。" });
@@ -124,6 +144,7 @@ export default function Home() {
             <label>密碼</label>
             <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="至少 6 碼" />
             <button disabled={busy} onClick={signIn}>登入</button>
+            <button className="secondary" disabled={busy} onClick={sendMagicLink}>寄送免密碼登入連結</button>
             <button className="secondary" disabled={busy} onClick={signUp}>建立新帳號</button>
             <button className="ghost" disabled={busy} onClick={sendPasswordReset}>忘記密碼？寄送重設密碼信</button>
           </>
