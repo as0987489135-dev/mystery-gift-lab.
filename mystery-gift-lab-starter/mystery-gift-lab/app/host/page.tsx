@@ -87,25 +87,23 @@ export default function HostPage() {
   }, []);
 
   useEffect(() => {
-    let alive = true;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!alive) return;
-      setSession(data.session);
-      if (data.session?.user) await loadActivities(data.session.user.id);
-      setLoading(false);
-    });
+    // Use Supabase's INITIAL_SESSION event as the single source of truth.
+    // Avoid racing getSession() against onAuthStateChange(), which could
+    // overwrite a valid session with a stale null result during page load.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      if (nextSession?.user) loadActivities(nextSession.user.id);
-      else {
+      if (nextSession?.user) {
+        void loadActivities(nextSession.user.id);
+      } else {
         setActivities([]);
         setSelectedActivity(null);
         setQuestions([]);
         setParticipants([]);
       }
+      setLoading(false);
     });
+
     return () => {
-      alive = false;
       listener.subscription.unsubscribe();
     };
   }, [loadActivities]);
