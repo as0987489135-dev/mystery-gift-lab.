@@ -64,3 +64,28 @@ button.danger{background:#fff0f1;color:#b85d6b;box-shadow:none}
 .hostParticipant{display:flex;align-items:center;gap:9px;padding:10px 12px;background:#f7f3ff;border-radius:12px;font-size:14px}
 .hostAvatar{font-size:18px}
 @media(max-width:760px){.hostLayout{grid-template-columns:1fr}.hostSidebar,.hostMain{padding:20px}.hostAddQuestion{grid-template-columns:1fr}.hostQuestion{flex-wrap:wrap}.hostQuestionText{flex:1 1 calc(100% - 50px)}.hostActions{margin-left:auto}}
+
+
+.participantPanel{max-width:760px}
+.participantWelcome{display:flex;align-items:center;gap:12px;padding:15px 17px;background:#fff5f8;border:1px solid #f7e4ed;border-radius:16px;margin:18px 0}
+.participantWelcome>span{font-size:28px}
+.participantWelcome p{margin:3px 0 0;color:#927f97;font-size:13px}
+.participantSurvey{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+.surveyProgress{padding:12px 15px;border-radius:13px;background:#f4efff;color:#8069a4;font-weight:900;font-size:14px}
+.surveyQuestion{padding:18px;background:#fffafc;border:1px solid #f1e4ef;border-radius:18px}
+.surveyQuestionTitle{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:16px}
+.surveyQuestionTitle strong{flex:1;min-width:130px}
+.surveySaved,.surveyPending{font-size:11px;font-weight:900;padding:5px 9px;border-radius:20px;white-space:nowrap}
+.surveySaved{background:#eaf8f0;color:#397b5a}
+.surveyPending{background:#fff2e5;color:#a66b37}
+.surveyHint{font-size:12px;color:#9b879f;margin:10px 0}
+.surveyRankingList{display:flex;flex-direction:column;gap:8px}
+.surveyRankingRow{display:flex;align-items:center;gap:11px;padding:10px 12px;background:#fff;border:1px solid #f0e7ef;border-radius:13px}
+.surveyRankNumber{width:28px;height:28px;flex:0 0 28px;border-radius:50%;display:grid;place-items:center;background:#f0e8fb;color:#8d75b5;font-weight:900;font-size:13px}
+.surveyPersonName{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:700}
+.surveyMoveButtons{display:flex;gap:6px}
+.surveyMoveButtons button{width:36px;height:34px;margin:0;padding:0;font-size:16px}
+.surveyMoveButtons button:disabled{opacity:.3}
+.surveySaveButton{margin-top:13px}
+.surveyCompletion{padding:15px;border-radius:14px;background:#f0faf4;color:#397b5a;font-size:14px;line-height:1.7;font-weight:700;text-align:center}
+@media(max-width:520px){.surveyQuestion{padding:14px}.surveyQuestionTitle{align-items:flex-start}.surveyMoveButtons button{width:33px}}
