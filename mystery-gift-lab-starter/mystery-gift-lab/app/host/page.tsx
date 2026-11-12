@@ -55,11 +55,7 @@ export default function HostPage() {
     }
     const rows = (data || []) as Activity[];
     setActivities(rows);
-    if (selectedActivity) {
-      const refreshed = rows.find((item) => item.id === selectedActivity.id);
-      if (refreshed) setSelectedActivity(refreshed);
-    }
-  }, [selectedActivity]);
+  }, []);
 
   const loadActivityDetails = useCallback(async (activity: Activity) => {
     setSelectedActivity(activity);
