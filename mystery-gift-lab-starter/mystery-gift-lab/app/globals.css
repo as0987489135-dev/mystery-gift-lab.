@@ -27,3 +27,40 @@ button.ghost{background:transparent;color:#967da0;box-shadow:none}
 footer{text-align:center;margin:28px auto 0;color:#b39eb5;font-size:12px}
 .sparkle{position:absolute;color:#e8a3c2;font-size:42px;opacity:.65}.s1{top:100px;left:8%}.s2{top:260px;right:9%;color:#b9a5e9}
 @media(max-width:520px){.page{padding-top:35px}.panel{padding:23px;border-radius:22px}}
+
+.hostPage{padding-top:38px}
+.hostLayout{display:grid;grid-template-columns:minmax(230px,310px) minmax(0,760px);gap:22px;max-width:1120px;margin:0 auto;align-items:start}
+.hostSidebar,.hostMain{max-width:none;margin:0;padding:24px}
+.hostActivityList{display:flex;flex-direction:column;gap:10px}
+button.hostActivity{width:100%;text-align:left;margin:0;padding:14px;border:1px solid #eee2ef;background:#fff;color:var(--ink);box-shadow:none;border-radius:15px;display:flex;flex-direction:column;gap:5px}
+button.hostActivity.active{border-color:#c59ee8;background:#faf6ff;box-shadow:0 0 0 3px #c5a8e822}
+.hostActivity span,.hostActivity small{font-size:12px;color:#927f97;font-weight:500}
+.hostBackLink{display:inline-block;margin-top:20px;color:#9674ae;font-weight:700;text-decoration:none}
+.hostEmpty{text-align:center;padding:54px 12px}
+.hostEmptyIcon{font-size:48px}
+.hostEmpty h2{font-size:21px}
+.hostActivityHeader{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}
+.hostActivityHeader .sectionTitle{margin-bottom:6px}
+.hostStatus{font-size:12px;padding:6px 10px;border-radius:20px;background:#f1eafb;color:#8469a4;font-weight:700}
+.hostStats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0 28px}
+.hostStats>div{background:#fff5f8;border-radius:16px;padding:15px;text-align:center;display:flex;flex-direction:column;gap:3px}
+.hostStats strong{font-size:27px;color:#bd7b9e}
+.hostStats span{font-size:12px;color:#927f97}
+.hostSectionHeading{font-size:18px;font-weight:900;margin:26px 0 8px}
+.hostAddQuestion{display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:10px;margin:16px 0}
+.hostAddQuestion button{margin:0;padding:10px;font-size:13px}
+.hostQuestionList{display:flex;flex-direction:column;gap:9px}
+.hostQuestion{display:flex;align-items:center;gap:12px;padding:12px;background:#fffafc;border:1px solid #f2e8f0;border-radius:14px}
+.hostQuestionNo{flex:0 0 30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#f0e8fb;color:#8d75b5;font-weight:900;font-size:13px}
+.hostQuestionText{flex:1;min-width:0;overflow-wrap:anywhere}
+.hostActions{display:flex;gap:7px;align-items:center}
+.hostSmallButton{width:auto;margin:0;padding:7px 11px;font-size:12px;box-shadow:none}
+button.danger{background:#fff0f1;color:#b85d6b;box-shadow:none}
+.hostEditArea{flex:1;min-width:0}
+.hostEditArea input{padding:9px 11px}
+.hostEditArea .hostActions{margin-top:7px}
+.hostEditArea .hostActions button{width:auto;margin:0;padding:7px 12px;font-size:12px}
+.hostParticipantList{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}
+.hostParticipant{display:flex;align-items:center;gap:9px;padding:10px 12px;background:#f7f3ff;border-radius:12px;font-size:14px}
+.hostAvatar{font-size:18px}
+@media(max-width:760px){.hostLayout{grid-template-columns:1fr}.hostSidebar,.hostMain{padding:20px}.hostAddQuestion{grid-template-columns:1fr}.hostQuestion{flex-wrap:wrap}.hostQuestionText{flex:1 1 calc(100% - 50px)}.hostActions{margin-left:auto}}
