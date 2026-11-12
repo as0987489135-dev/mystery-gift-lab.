@@ -89,3 +89,9 @@ button.danger{background:#fff0f1;color:#b85d6b;box-shadow:none}
 .surveySaveButton{margin-top:13px}
 .surveyCompletion{padding:15px;border-radius:14px;background:#f0faf4;color:#397b5a;font-size:14px;line-height:1.7;font-weight:700;text-align:center}
 @media(max-width:520px){.surveyQuestion{padding:14px}.surveyQuestionTitle{align-items:flex-start}.surveyMoveButtons button{width:33px}}
+
+
+.giftWishForm{display:grid;gap:10px;margin-top:14px;padding:18px;border:1.5px solid #eaddec;border-radius:16px;background:#fffafd}
+.giftWishForm label{font-weight:800;color:var(--ink);margin-top:4px}
+.giftWishForm input{width:100%;box-sizing:border-box}
+.giftWishForm button{justify-self:start}
