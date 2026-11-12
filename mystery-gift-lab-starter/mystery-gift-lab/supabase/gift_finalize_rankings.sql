@@ -1,5 +1,5 @@
 create or replace function public.gift_finalize_rankings(p_activity_id uuid)
-returns void
+returns boolean
 language plpgsql
 security definer
 set search_path = public
@@ -149,6 +149,8 @@ begin
   update public.gift_activities
   set status = 'locked'
   where id = p_activity_id;
+
+  return true;
 end;
 $$;
 
