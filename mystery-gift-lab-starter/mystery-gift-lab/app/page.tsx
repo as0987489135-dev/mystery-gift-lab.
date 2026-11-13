@@ -307,7 +307,12 @@ export default function Home() {
       <section className="panel mainPanel">
         {session ? (
           <>
-            <div className="signed"><span className="dot" /> 已登入：{session.user.email}</div>
+           <div className="signed">
+  <span className="dot" />
+  已登入：{session.user.email}
+  <br />
+  使用者 ID：{session.user.id}
+</div>
             <div className="sectionTitle">🎀 建立一場交換禮物</div>
             <label>活動名稱</label>
             <input value={activityName} onChange={e => setActivityName(e.target.value)} />
