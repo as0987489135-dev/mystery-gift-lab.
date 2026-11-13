@@ -99,13 +99,9 @@ console.log("參加紀錄查詢錯誤：", participantError);
     }
 
     // 排除自己建立的活動，避免重複顯示
-    const ownedIds = new Set(rows.map(activity => activity.id));
-
-    setJoinedActivities(
-      ((joinedRows ?? []) as Activity[]).filter(
-        activity => !ownedIds.has(activity.id)
-      )
-    );
+// 顯示所有自己參加的活動
+// 即使同時是主辦人，也保留參加者頁面的入口
+setJoinedActivities((joinedRows ?? []) as Activity[]);
   }, []);
 
 
