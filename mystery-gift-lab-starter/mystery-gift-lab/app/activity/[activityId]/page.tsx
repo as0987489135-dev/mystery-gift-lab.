@@ -27,6 +27,12 @@ type Question = {
 type Notice = { kind: "ok" | "error"; text: string } | null;
 type Answer = { question_id: string; ordered_participant_ids: string[] };
 type Wish = { id: string; gift_name: string; gift_url: string };
+type Guess = {
+  question_id: string;
+  guessed_rank: number;
+  unlocked_gift_name: string;
+  unlocked_gift_url: string | null;
+};
 
 export default function ParticipantActivityPage() {
   const params = useParams<{ activityId: string }>();
@@ -47,6 +53,11 @@ export default function ParticipantActivityPage() {
   const [wishSaved, setWishSaved] = useState(false);
   const [savingQuestion, setSavingQuestion] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  const [recipientName, setRecipientName] = useState("");
+const [myGuesses, setMyGuesses] = useState<Guess[]>([]);
+const [selectedQuestionId, setSelectedQuestionId] = useState("");
+const [selectedRank, setSelectedRank] = useState("1");
+const [submittingGuess, setSubmittingGuess] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadActivity = useCallback(async (userId: string) => {
@@ -87,8 +98,11 @@ export default function ParticipantActivityPage() {
     }
 
     if (selfResult.error || !selfResult.data) {
-      setNotice({ kind: "error", text: "找不到你在這場活動的參加者資料，請返回首頁重新加入活動。" });
-      setActivity(activityResult.data as Activity);
+      setNotice({
+        kind: "error",
+        text: "找不到你在這場活動的參加者資料，請返回首頁重新加入活動。"
+      });
+      setActivity(null);
       setLoading(false);
       return;
     }
@@ -168,6 +182,51 @@ export default function ParticipantActivityPage() {
 
     setActivity(activityResult.data as Activity);
     setSelf(currentParticipant);
+
+    if (activityResult.data.status === "locked") {
+      const [recipientResult, guessesResult] = await Promise.all([
+        supabase.rpc("gift_get_my_recipient", {
+          p_activity_id: activityId
+        }),
+        supabase.rpc("gift_get_my_guesses", {
+          p_activity_id: activityId
+        })
+      ]);
+
+      const recipient = Array.isArray(recipientResult.data)
+        ? recipientResult.data[0]
+        : recipientResult.data;
+
+      if (!recipientResult.error && recipient) {
+        setRecipientName(recipient.recipient_name || "");
+      } else {
+        setRecipientName("");
+      }
+
+      const loadedGuesses = !guessesResult.error
+        ? (guessesResult.data || []) as Guess[]
+        : [];
+
+      setMyGuesses(loadedGuesses);
+
+      if (guessesResult.error) {
+        setNotice({
+          kind: "error",
+          text: "讀取已解鎖禮物失敗：" + guessesResult.error.message
+        });
+      }
+
+      const firstAvailableQuestion = loadedQuestions.find(
+        q => !loadedGuesses.some(g => g.question_id === q.id)
+      );
+
+      setSelectedQuestionId(firstAvailableQuestion?.id || "");
+    } else {
+      setRecipientName("");
+      setMyGuesses([]);
+      setSelectedQuestionId(loadedQuestions[0]?.id || "");
+    }
+
     setLoading(false);
   }, [activityId]);
 
@@ -267,6 +326,74 @@ export default function ParticipantActivityPage() {
       setNotice({ kind: "ok", text: "你的禮物願望已成功儲存！只有你本人及主辦人可以查看。" });
     }
     setSavingWish(false);
+    
+  }
+
+  async function submitGuess() {
+    if (!self || !activity || !recipientName) return;
+
+    if (myGuesses.length >= 3) {
+      setNotice({ kind: "error", text: "最多只能猜測 3 次喔！" });
+      return;
+    }
+
+    if (!selectedQuestionId) {
+      setNotice({ kind: "error", text: "請先選擇一個題目。" });
+      return;
+    }
+
+    if (myGuesses.some(g => g.question_id === selectedQuestionId)) {
+      setNotice({ kind: "error", text: "這道題目已經猜過了，請選擇其他題目。" });
+      return;
+    }
+
+    setSubmittingGuess(true);
+    setNotice(null);
+
+    const { data, error } = await supabase.rpc("gift_make_guess", {
+      p_activity_id: activityId,
+      p_question_id: selectedQuestionId,
+      p_guessed_rank: Number(selectedRank)
+    });
+
+    setSubmittingGuess(false);
+
+    if (error) {
+      setNotice({
+        kind: "error",
+        text: "猜測失敗：" + error.message
+      });
+      return;
+    }
+
+    const unlocked = Array.isArray(data) ? data[0] : data;
+
+    if (!unlocked) {
+      setNotice({ kind: "error", text: "系統沒有回傳解鎖結果，請稍後再試。" });
+      return;
+    }
+
+    setMyGuesses(previous => [
+      ...previous,
+      {
+        question_id: selectedQuestionId,
+        guessed_rank: Number(selectedRank),
+        unlocked_gift_name: unlocked.unlocked_gift_name,
+        unlocked_gift_url: unlocked.unlocked_gift_url || null
+      }
+    ]);
+
+    const nextQuestion = questions.find(
+      q => q.id !== selectedQuestionId &&
+        !myGuesses.some(g => g.question_id === q.id)
+    );
+
+    setSelectedQuestionId(nextQuestion?.id || "");
+
+    setNotice({
+      kind: "ok",
+      text: "猜測完成！已解鎖這個排名對應的禮物。"
+    });
   }
 
   if (loading) {
@@ -296,14 +423,126 @@ export default function ParticipantActivityPage() {
               <span className="hostStatus">{activity.status === "open" ? "開放參加" : "已鎖定"}</span>
             </div>
 
+            
             {self && (
-              <div className="participantWelcome">
-                <span>👋</span>
-                <div>
-                  <strong>嗨，{self.display_name}！</strong>
-                  <p>你已經加入這場活動囉。</p>
+              <>
+                {activity.status === "locked" && (
+                  <section className="surveyQuestion">
+                    <div className="hostSectionHeading">🎯 我的送禮任務</div>
+
+                    {recipientName ? (
+                      <>
+                        <p>
+                          你抽到的送禮對象：
+                          <strong>{recipientName}</strong>
+                        </p>
+
+                        <p className="muted">
+                          每次選擇一道題目及一個排名，就能解鎖該排名對應的禮物。
+                          猜對或猜錯都會解鎖，但每道題目只能猜一次。
+                        </p>
+
+                        <p className="muted">
+                          已使用 {myGuesses.length} / 3 次猜測
+                        </p>
+
+                        {myGuesses.length < 3 &&
+                          questions.some(
+                            q => !myGuesses.some(g => g.question_id === q.id)
+                          ) && (
+                            <>
+                              <label htmlFor="guessQuestion">選擇問卷題目</label>
+                              <select
+                                id="guessQuestion"
+                                value={selectedQuestionId}
+                                onChange={(event) =>
+                                  setSelectedQuestionId(event.target.value)
+                                }
+                              >
+                                {questions
+                                  .filter(
+                                    q => !myGuesses.some(g => g.question_id === q.id)
+                                  )
+                                  .map(q => (
+                                    <option key={q.id} value={q.id}>
+                                      {q.question_no}. {q.question_text}
+                                    </option>
+                                  ))}
+                              </select>
+
+                              <label htmlFor="guessRank">猜測排名</label>
+                              <select
+                                id="guessRank"
+                                value={selectedRank}
+                                onChange={(event) =>
+                                  setSelectedRank(event.target.value)
+                                }
+                              >
+                                {participants.map((_, index) => (
+                                  <option key={index} value={String(index + 1)}>
+                                    第 {index + 1} 名
+                                  </option>
+                                ))}
+                              </select>
+
+                              <button
+                                type="button"
+                                className="secondary surveySaveButton"
+                                disabled={submittingGuess || !selectedQuestionId}
+                                onClick={submitGuess}
+                              >
+                                {submittingGuess ? "解鎖中…" : "猜測並解鎖禮物"}
+                              </button>
+                            </>
+                          )}
+
+                        {myGuesses.map(g => (
+                          <div className="surveyQuestion" key={g.question_id}>
+                            <strong>
+                              {questions.find(q => q.id === g.question_id)?.question_text || "問卷題目"}
+                            </strong>
+
+                            <p>你猜的是第 {g.guessed_rank} 名</p>
+
+                            <p>
+                              🎁 解鎖禮物：
+                              <strong>{g.unlocked_gift_name}</strong>
+                            </p>
+
+                            {g.unlocked_gift_url && (
+                              <a
+                                href={g.unlocked_gift_url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                查看禮物連結
+                              </a>
+                            )}
+                          </div>
+                        ))}
+
+                        {myGuesses.length >= 3 && (
+                          <p className="muted">
+                            🎉 三次猜測機會已使用完畢！
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="muted">
+                        抽籤尚未完成，或目前尚未取得你的送禮對象，請稍後再查看。
+                      </p>
+                    )}
+                  </section>
+                )}
+
+                <div className="participantWelcome">
+                  <span>👋</span>
+                  <div>
+                    <strong>嗨，{self.display_name}！</strong>
+                    <p>你已經加入這場活動囉。</p>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             <div className="hostStats">
