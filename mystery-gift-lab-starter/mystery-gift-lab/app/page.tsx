@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -25,6 +26,7 @@ export default function Home() {
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [joinedActivities, setJoinedActivities] = useState<Activity[]>([]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -32,20 +34,80 @@ export default function Home() {
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [editingQuestionText, setEditingQuestionText] = useState("");
 
+  
   const loadActivities = useCallback(async (userId: string) => {
+    // 讀取自己建立的活動
     const { data, error } = await supabase
       .from("gift_activities")
       .select("id, activity_name, activity_code, status, created_at")
       .eq("owner_id", userId)
       .order("created_at", { ascending: false });
+
     if (error) {
       setNotice({ kind: "error", text: `讀取活動失敗：${error.message}` });
       return;
     }
+
     const rows = (data ?? []) as Activity[];
     setActivities(rows);
-    setSelectedActivity(current => current ? rows.find(row => row.id === current.id) ?? null : null);
+
+    setSelectedActivity(current =>
+      current ? rows.find(row => row.id === current.id) ?? null : null
+    );
+
+    // 讀取自己參加過的活動
+    const { data: participantRows, error: participantError } =
+      await supabase
+        .from("gift_participants")
+        .select("activity_id")
+        .eq("user_id", userId);
+    console.log("目前登入 User ID：", userId);
+console.log("參加紀錄查詢結果：", participantRows);
+console.log("參加紀錄查詢錯誤：", participantError);
+
+    if (participantError) {
+      setNotice({
+        kind: "error",
+        text: `讀取參加活動失敗：${participantError.message}`
+      });
+      return;
+    }
+
+    const activityIds = [
+      ...new Set((participantRows ?? []).map(row => row.activity_id))
+    ];
+
+    if (activityIds.length === 0) {
+      setJoinedActivities([]);
+      return;
+    }
+
+    // 讀取參加活動的詳細資料
+    const { data: joinedRows, error: joinedError } =
+      await supabase
+        .from("gift_activities")
+        .select("id, activity_name, activity_code, status, created_at")
+        .in("id", activityIds)
+        .order("created_at", { ascending: false });
+
+    if (joinedError) {
+      setNotice({
+        kind: "error",
+        text: `讀取參加活動資料失敗：${joinedError.message}`
+      });
+      return;
+    }
+
+    // 排除自己建立的活動，避免重複顯示
+    const ownedIds = new Set(rows.map(activity => activity.id));
+
+    setJoinedActivities(
+      ((joinedRows ?? []) as Activity[]).filter(
+        activity => !ownedIds.has(activity.id)
+      )
+    );
   }, []);
+
 
   const loadActivityDetails = useCallback(async (activity: Activity) => {
     const [questionResult, participantResult] = await Promise.all([
@@ -64,17 +126,25 @@ export default function Home() {
     } else setParticipants((participantResult.data ?? []) as Participant[]);
   }, []);
 
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      if (!nextSession) {
-        setActivities([]);
-        setSelectedActivity(null);
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        setSession(nextSession);
+
+        if (!nextSession) {
+          setActivities([]);
+          setJoinedActivities([]);
+          setSelectedActivity(null);
+        }
       }
-    });
+    );
+
     return () => listener.subscription.unsubscribe();
   }, []);
+
 
   useEffect(() => {
     if (session?.user.id) void loadActivities(session.user.id);
@@ -98,6 +168,37 @@ export default function Home() {
     setBusy(true); setNotice(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setNotice(error ? { kind: "error", text: error.message } : { kind: "ok", text: "登入成功！" });
+    setBusy(false);
+  }
+
+  async function sendMagicLink() {
+    if (!email.trim()) {
+      setNotice({ kind: "error", text: "請先輸入 Email。" });
+      return;
+    }
+    setBusy(true); setNotice(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin + "/host", shouldCreateUser: false }
+    });
+    setNotice(error
+      ? { kind: "error", text: "寄送免密碼登入信失敗：" + error.message }
+      : { kind: "ok", text: "登入連結已寄出！請開啟最新一封信件，並只點擊一次連結。" });
+    setBusy(false);
+  }
+
+  async function sendPasswordReset() {
+    if (!email.trim()) {
+      setNotice({ kind: "error", text: "請先輸入註冊時使用的 Email。" });
+      return;
+    }
+    setBusy(true); setNotice(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin + "/reset-password"
+    });
+    setNotice(error
+      ? { kind: "error", text: "寄送重設密碼信失敗：" + error.message }
+      : { kind: "ok", text: "如果這個 Email 已註冊，系統會寄出重設密碼信。請留意信件有效期限。" });
     setBusy(false);
   }
 
@@ -135,7 +236,16 @@ export default function Home() {
     setNotice({ kind: "ok", text: "加入活動成功！正在前往參加者頁面…" });
     setBusy(false);
     if (typeof data === "string") {
-      window.location.assign(`/participant?participantId=${encodeURIComponent(data)}`);
+      const { data: participant, error: participantError } = await supabase
+        .from("gift_participants")
+        .select("activity_id")
+        .eq("id", data)
+        .maybeSingle();
+      if (participantError || !participant?.activity_id) {
+        setNotice({ kind: "error", text: "已加入活動，但讀取活動頁面資料失敗：" + (participantError?.message || "找不到參加紀錄") });
+      } else {
+        window.location.assign(`/activity/${encodeURIComponent(participant.activity_id)}`);
+      }
     } else {
       setNotice({ kind: "error", text: "已加入活動，但系統未取得參加者識別資料，請重新整理後再試。" });
     }
@@ -200,7 +310,12 @@ export default function Home() {
       <section className="panel mainPanel">
         {session ? (
           <>
-            <div className="signed"><span className="dot" /> 已登入：{session.user.email}</div>
+           <div className="signed">
+  <span className="dot" />
+  已登入：{session.user.email}
+  <br />
+  使用者 ID：{session.user.id}
+</div>
             <div className="sectionTitle">🎀 建立一場交換禮物</div>
             <label>活動名稱</label>
             <input value={activityName} onChange={e => setActivityName(e.target.value)} />
@@ -223,7 +338,9 @@ export default function Home() {
             <label>密碼</label>
             <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="至少 6 碼" />
             <button disabled={busy} onClick={signIn}>登入</button>
+            <button className="secondary" disabled={busy} onClick={sendMagicLink}>寄送免密碼登入連結</button>
             <button className="secondary" disabled={busy} onClick={signUp}>建立新帳號</button>
+            <button className="ghost" disabled={busy} onClick={sendPasswordReset}>忘記密碼？寄送重設密碼信</button>
           </>
         )}
         {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
@@ -286,7 +403,61 @@ export default function Home() {
           </div>
         </section>
       )}
-      <footer>Made with 🎁, ✨ and a little mystery.</footer>
+     
+      {session && (
+        <section className="dashboard">
+          <div className="dashboardHeading">
+            <div>
+              <div className="eyebrow">PARTY GUEST</div>
+              <h2>🎁 我參加的活動</h2>
+              <p>已加入的活動都會保留在這裡，隨時可以回來查看。</p>
+            </div>
+            <span className="countPill">
+              {joinedActivities.length} 場活動
+            </span>
+          </div>
+
+          <div className="activityList">
+            {joinedActivities.length === 0 ? (
+              <div className="emptyState">
+                目前還沒有參加其他活動，加入朋友的派對後就會顯示在這裡！
+              </div>
+            ) : (
+              joinedActivities.map(activity => (
+                <Link
+                  key={activity.id}
+                  href={`/activity/${encodeURIComponent(activity.id)}`}
+                  className="activityCard"
+                  style={{
+                    display: "block",
+                    textDecoration: "none",
+                    color: "inherit"
+                  }}
+                >
+                  <span className="activityCardTop">
+                    <strong>{activity.activity_name}</strong>
+                    <span className={`statusTag ${activity.status}`}>
+                      {activity.status === "open"
+                        ? "準備中"
+                        : activity.status === "locked"
+                        ? "已鎖定"
+                        : activity.status}
+                    </span>
+                  </span>
+
+                  <span className="activityCode">
+                    活動代碼：{activity.activity_code}
+                  </span>
+
+                  <span className="activityMeta">
+                    加入後即可隨時返回活動參加室 →
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </section>
+      )}
     </main>
   );
 }
