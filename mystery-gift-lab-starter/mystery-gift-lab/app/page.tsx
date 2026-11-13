@@ -35,74 +35,82 @@ export default function Home() {
   const [editingQuestionText, setEditingQuestionText] = useState("");
 
   
-  const loadActivities = useCallback(async (userId: string) => {
-    // 讀取自己建立的活動
-    const { data, error } = await supabase
+
+const loadActivities = useCallback(async (userId: string) => {
+  // 1. 讀取自己建立的活動
+  const { data, error } = await supabase
+    .from("gift_activities")
+    .select("id, activity_name, activity_code, status, created_at")
+    .eq("owner_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    setNotice({ kind: "error", text: `讀取活動失敗：${error.message}` });
+    return;
+  }
+
+  const rows = (data ?? []) as Activity[];
+  setActivities(rows);
+
+  setSelectedActivity(current =>
+    current ? rows.find(row => row.id === current.id) ?? null : null
+  );
+
+  // 2. 讀取自己參加過的活動
+  const { data: participantRows, error: participantError } =
+    await supabase
+      .from("gift_participants")
+      .select("activity_id")
+      .eq("user_id", userId);
+
+  console.log("目前登入 User ID：", userId);
+  console.log("參加紀錄查詢結果：", participantRows);
+  console.log("參加紀錄查詢錯誤：", participantError);
+
+  if (participantError) {
+    setNotice({
+      kind: "error",
+      text: `讀取參加活動失敗：${participantError.message}`
+    });
+    setJoinedActivities([]);
+    return;
+  }
+
+  const activityIds = [
+    ...new Set((participantRows ?? []).map(row => row.activity_id))
+  ];
+
+  console.log("參加活動 ID：", activityIds);
+
+  if (activityIds.length === 0) {
+    setJoinedActivities([]);
+    return;
+  }
+
+  // 3. 依照參加紀錄讀取活動詳細資料
+  const { data: joinedRows, error: joinedError } =
+    await supabase
       .from("gift_activities")
       .select("id, activity_name, activity_code, status, created_at")
-      .eq("owner_id", userId)
+      .in("id", activityIds)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      setNotice({ kind: "error", text: `讀取活動失敗：${error.message}` });
-      return;
-    }
+  console.log("參加活動詳細資料：", joinedRows);
+  console.log("參加活動詳細資料錯誤：", joinedError);
 
-    const rows = (data ?? []) as Activity[];
-    setActivities(rows);
+  if (joinedError) {
+    setNotice({
+      kind: "error",
+      text: `讀取參加活動資料失敗：${joinedError.message}`
+    });
+    setJoinedActivities([]);
+    return;
+  }
 
-    setSelectedActivity(current =>
-      current ? rows.find(row => row.id === current.id) ?? null : null
-    );
+  // 4. 顯示所有參加過的活動
+  setJoinedActivities((joinedRows ?? []) as Activity[]);
+}, []);
 
-    // 讀取自己參加過的活動
-    const { data: participantRows, error: participantError } =
-      await supabase
-        .from("gift_participants")
-        .select("activity_id")
-        .eq("user_id", userId);
-    console.log("目前登入 User ID：", userId);
-console.log("參加紀錄查詢結果：", participantRows);
-console.log("參加紀錄查詢錯誤：", participantError);
-
-    if (participantError) {
-      setNotice({
-        kind: "error",
-        text: `讀取參加活動失敗：${participantError.message}`
-      });
-      return;
-    }
-
-    const activityIds = [
-      ...new Set((participantRows ?? []).map(row => row.activity_id))
-    ];
-
-    if (activityIds.length === 0) {
-      setJoinedActivities([]);
-      return;
-    }
-
-    // 讀取參加活動的詳細資料
-    const { data: joinedRows, error: joinedError } =
-      await supabase
-        .from("gift_activities")
-        .select("id, activity_name, activity_code, status, created_at")
-        .in("id", activityIds)
-        .order("created_at", { ascending: false });
-
-    if (joinedError) {
-      setNotice({
-        kind: "error",
-        text: `讀取參加活動資料失敗：${joinedError.message}`
-      });
-      return;
-    }
-
-    // 排除自己建立的活動，避免重複顯示
-// 顯示所有自己參加的活動
-// 即使同時是主辦人，也保留參加者頁面的入口
-setJoinedActivities((joinedRows ?? []) as Activity[]);
-  }, []);
 
 
   const loadActivityDetails = useCallback(async (activity: Activity) => {
