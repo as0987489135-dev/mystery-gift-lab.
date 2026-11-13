@@ -61,6 +61,9 @@ export default function Home() {
         .from("gift_participants")
         .select("activity_id")
         .eq("user_id", userId);
+    console.log("目前登入 User ID：", userId);
+console.log("參加紀錄查詢結果：", participantRows);
+console.log("參加紀錄查詢錯誤：", participantError);
 
     if (participantError) {
       setNotice({
